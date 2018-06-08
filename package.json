@@ -1,0 +1,43 @@
+{
+  "name": "elasticsearch-suggester",
+  "version": "0",
+  "license": "MIT",
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-eslint": "^8.2.3",
+    "babel-jest": "^22.4.3",
+    "babel-plugin-transform-flow-strip-types": "^6.22.0",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-env": "^1.6.1",
+    "elasticsearch": "^14.2.2",
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^12.0.1",
+    "eslint-config-prettier": "^2.9.0",
+    "eslint-plugin-flowtype": "^2.46.2",
+    "eslint-plugin-import": "^2.11.0",
+    "eslint-plugin-prettier": "^2.6.0",
+    "express": "^4.16.3",
+    "express-graphql": "^0.6.12",
+    "flow-bin": "^0.70.0",
+    "jest": "^22.4.3",
+    "nodemon": "^1.17.3",
+    "prettier": "^1.12.0",
+    "rimraf": "^2.6.2",
+  },
+  "jest": {
+    "roots": [
+      "<rootDir>/src"
+    ]
+  },
+  "scripts": {
+    "demo3": "./node_modules/.bin/babel-node ./examples/completionSuggest/index.js",
+    "watch": "jest --watch",
+    "coverage": "jest --coverage",
+    "lint": "eslint --ext .js ./src",
+    "flow": "./node_modules/.bin/flow",
+    "test": "npm run coverage && npm run lint && npm run flow",
+    "docker": "npm run docker:v5",
+    "docker:v5": "node ./scripts/docker/start 5 & wait",
+  }
+}
