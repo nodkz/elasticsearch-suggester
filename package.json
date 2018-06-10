@@ -23,7 +23,7 @@
     "jest": "^22.4.3",
     "nodemon": "^1.17.3",
     "prettier": "^1.12.0",
-    "rimraf": "^2.6.2",
+    "rimraf": "^2.6.2"
   },
   "jest": {
     "roots": [
@@ -38,6 +38,6 @@
     "flow": "./node_modules/.bin/flow",
     "test": "npm run coverage && npm run lint && npm run flow",
     "docker": "npm run docker:v5",
-    "docker:v5": "node ./scripts/docker/start 5 & wait",
+    "docker:v5": "node ./scripts/docker/start 5 & wait"
   }
 }

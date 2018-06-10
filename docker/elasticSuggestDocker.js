@@ -3,11 +3,11 @@
 const cp = require('child_process');
 const path = require('path');
 
-const dockerImageName = 'elasticsearch-nodkz:5';
-const containerName = `elasticsearch-nodkz-container`;
+const dockerImageName = 'es:5';
+const containerName = `es-container`;
 
-function isDockerImageExists(imageNameWithTag) {
-  const imageId = cp.execSync(`docker images -q ${imageNameWithTag}`, { cwd: '.' }).toString();
+function isDockerImageExists(imageName) {
+  const imageId = cp.execSync(`docker images -q ${imageName}`, { cwd: '.' }).toString();
   return imageId && imageId.length > 0;
 }
 
@@ -24,22 +24,32 @@ function buildDockerContainer() {
   );
 }
 
+function isContainerRunning() {
+  const isRunning = cp.execSync(`docker ps -f "name=${containerName}"`, {
+    stdio: [0, 1, 2],
+  });
+  return !!isRunning;
+}
+
 export function runDockerContainer() {
+  // if (isContainerRunning()) {
+  //   cp.execSync(`docker stop ${containerName}`, {
+  //     stdio: [0, 1, 2],
+  //   });
+  // }
   if (!isDockerImageExists(dockerImageName)) {
     buildDockerContainer();
   }
-
   cp.execSync(`docker run --rm -d -p 9200:9200 --name ${containerName} ${dockerImageName}`, {
     stdio: [0, 1, 2],
   });
 }
 
-export function stopDockerContainer() {
+export function stopAndRemoveDockerContainer() {
+  console.log('akslskjdmslkdmclsdmcsdcmsdcmlksdmclksmdlcksmdlkcmsdlkkkmklmclsmdklsmcklsmd');
   cp.execSync(`docker stop ${containerName}`, { stdio: [0, 1, 2] });
+  cp.execSync(`docker rm ${containerName}`, { stdio: [0, 1, 2] });
   // cp.execSync(`docker rmi -f ${dockerImageName}`, { stdio: [0, 1, 2] });
   // cp.execSync(`docker rmi -f elasticsearch:5-alpine`, { stdio: [0, 1, 2] });
   process.exit(0);
 }
-
-process.on('SIGINT', stopDockerContainer); // catch ctrl-c
-process.on('SIGTERM', stopDockerContainer); // catch kill
