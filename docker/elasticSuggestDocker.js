@@ -24,32 +24,31 @@ function buildDockerContainer() {
   );
 }
 
-function isContainerRunning() {
-  const isRunning = cp.execSync(`docker ps -f "name=${containerName}"`, {
-    stdio: [0, 1, 2],
-  });
-  return !!isRunning;
-}
-
 export function runDockerContainer() {
-  // if (isContainerRunning()) {
-  //   cp.execSync(`docker stop ${containerName}`, {
-  //     stdio: [0, 1, 2],
-  //   });
-  // }
-  if (!isDockerImageExists(dockerImageName)) {
-    buildDockerContainer();
+  console.log('inside run');
+  const runningContainer = cp
+    .execSync(`docker ps -f "name=${containerName}" --format "{{.Names}}"`)
+    .toString();
+  if (!runningContainer) {
+    if (!isDockerImageExists(dockerImageName)) {
+      buildDockerContainer();
+    }
+    const aliveContainer = cp
+      .execSync(`docker run --rm -d -p 9200:9200 --name ${containerName} ${dockerImageName}`)
+      .toString();
+    return aliveContainer;
   }
-  cp.execSync(`docker run --rm -d -p 9200:9200 --name ${containerName} ${dockerImageName}`, {
-    stdio: [0, 1, 2],
-  });
+  return runningContainer;
 }
 
 export function stopAndRemoveDockerContainer() {
-  console.log('akslskjdmslkdmclsdmcsdcmsdcmlksdmclksmdlcksmdlkcmsdlkkkmklmclsmdklsmcklsmd');
-  cp.execSync(`docker stop ${containerName}`, { stdio: [0, 1, 2] });
-  cp.execSync(`docker rm ${containerName}`, { stdio: [0, 1, 2] });
+  console.log('inside exit');
+  const stoppedContainer = cp.execSync(`docker stop ${containerName}`).toString();
+  if (!stoppedContainer) throw new Error(`Can't stop '${stoppedContainer}' container`);
+  return stoppedContainer;
+  // cp.execSync(`docker rm ${containerName}`);
+  // if (isContainerRunning()) reject(new Error(`Can't stop and remove container`));
+  // resolve(true);
   // cp.execSync(`docker rmi -f ${dockerImageName}`, { stdio: [0, 1, 2] });
   // cp.execSync(`docker rmi -f elasticsearch:5-alpine`, { stdio: [0, 1, 2] });
-  process.exit(0);
 }
