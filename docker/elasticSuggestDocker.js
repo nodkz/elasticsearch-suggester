@@ -24,24 +24,27 @@ function buildDockerContainer() {
   );
 }
 
-export function runDockerContainer() {
-  console.log('inside run');
-  const runningContainer = cp
+function isContainerRunning() {
+  const isRunning = cp
     .execSync(`docker ps -f "name=${containerName}" --format "{{.Names}}"`)
     .toString();
-  if (!runningContainer) {
-    if (!isDockerImageExists(dockerImageName)) {
-      buildDockerContainer();
-    }
-    const aliveContainer = cp
-      .execSync(`docker run --rm -d -p 9200:9200 --name ${containerName} ${dockerImageName}`)
-      .toString();
-    return aliveContainer;
-  }
-  return runningContainer;
+  return !!isRunning;
 }
 
-export function stopAndRemoveDockerContainer() {
+export function runDockerContainer() {
+  console.log('inside run');
+  if (!isContainerRunning()) {
+    if (!isDockerImageExists(dockerImageName)) buildDockerContainer();
+    cp.execSync(`sh es.sh ${containerName} ${dockerImageName}`, {
+      cwd: path.resolve(__dirname, `./es5`),
+      stdio: [0, 1, 2],
+    });
+    return true;
+  }
+  return true;
+}
+
+export function stopDockerContainer() {
   console.log('inside exit');
   const stoppedContainer = cp.execSync(`docker stop ${containerName}`).toString();
   if (!stoppedContainer) throw new Error(`Can't stop '${stoppedContainer}' container`);

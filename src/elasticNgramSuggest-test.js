@@ -1,7 +1,12 @@
 /* @flow */
 
 import elasticsearch from 'elasticsearch';
-import { runDockerContainer, stopDockerContainer } from '../../docker/elasticSuggestDocker';
+// import {
+//   runDockerContainer,
+//   stopDockerContainer,
+// } from '../../docker/elasticSuggestDocker';
+
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 60000;
 
 let elasticClient;
 const elasticIndex = 'university';
@@ -10,82 +15,30 @@ const testData = [
   {
     id: 1,
     title: 'Академия гражданской авиации',
-    title_suggest: [
-      {
-        input: 'Академия гражданской авиации',
-        weight: 10,
-      },
-      {
-        input: 'АГА',
-        weight: 8,
-      },
-      {
-        input: 'гражданская авиация',
-        weight: 3,
-      },
-    ],
   },
   {
     id: 2,
     title: 'Алматинский университет энергетики и связи',
-    title_suggest: [
-      {
-        input: 'Алматинский университет энергетики и связи',
-        weight: 10,
-      },
-      {
-        input: 'АУЭС',
-        weight: 8,
-      },
-    ],
   },
   {
     id: 3,
     title: 'Военно-инженерный институт радиоэлектроники и связи МО РК',
-    title_suggest: [
-      {
-        input: 'Военно-инженерный институт радиоэлектроники и связи МО РК',
-        weight: 10,
-      },
-      {
-        input: 'ВИИРЭИС',
-        weight: 8,
-      },
-      {
-        input: 'Военно-инженерный институт',
-        weight: 5,
-      },
-    ],
   },
   {
     id: 4,
     title: 'Казахский Национальный университет им. аль-Фараби (КазНУ)',
-    title_suggest: [
-      {
-        input: 'Казахский Национальный университет им. аль-Фараби (КазНУ)',
-        weight: 10,
-      },
-      {
-        input: 'КазНУ',
-        weight: 9,
-      },
-      {
-        input: 'КазГу',
-        weight: 7,
-      },
-    ],
   },
 ];
 
 beforeAll(async () => {
-  runDockerContainer();
+  // runDockerContainer();
+
   elasticClient = new elasticsearch.Client({
     host: 'http://127.0.0.1:9200',
     apiVersion: '5.0',
     maxRetries: 10,
-    requestTimeout: 1000 * 60 * 60,
-    keepAlive: false,
-    // log: 'debug',
+    requestTimeout: 60000,
+    // log: 'trace',
   });
 
   const isIndexExist = await elasticClient.indices.exists({ index: elasticIndex });
@@ -95,19 +48,36 @@ beforeAll(async () => {
       body: {
         settings: {
           number_of_shards: 1,
+          analysis: {
+            filter: {
+              nGram_filter: {
+                type: 'nGram',
+                min_gram: 1,
+                max_gram: 20,
+                token_chars: ['letter', 'digit', 'punctuation', 'symbol'],
+              },
+            },
+            analyzer: {
+              nGram_analyzer: {
+                type: 'custom',
+                tokenizer: 'whitespace',
+                filter: ['lowercase', 'asciifolding', 'nGram_filter'],
+              },
+              whitespace_analyzer: {
+                type: 'custom',
+                tokenizer: 'whitespace',
+                filter: ['lowercase', 'asciifolding'],
+              },
+            },
+          },
         },
         mappings: {
           [elasticType]: {
             properties: {
               title: {
                 type: 'text',
-              },
-              title_suggest: {
-                type: 'completion',
-                analyzer: 'simple',
-                preserve_separators: true,
-                preserve_position_increments: true,
-                max_input_length: 50,
+                analyzer: 'nGram_analyzer',
+                search_analyzer: 'whitespace_analyzer',
               },
             },
           },
@@ -138,7 +108,7 @@ beforeAll(async () => {
   });
 });
 
-afterAll(() => stopDockerContainer());
+// afterAll(() => stopDockerContainer());
 
 describe('ElasticSearch', () => {
   it('is running', async () => {
@@ -158,13 +128,10 @@ describe('ElasticSearch', () => {
         mappings: {
           university: {
             properties: {
-              title: { type: 'text' },
-              title_suggest: {
-                analyzer: 'simple',
-                max_input_length: 50,
-                preserve_position_increments: true,
-                preserve_separators: true,
-                type: 'completion',
+              title: {
+                analyzer: 'nGram_analyzer',
+                search_analyzer: 'whitespace_analyzer',
+                type: 'text',
               },
             },
           },
@@ -195,11 +162,6 @@ describe('ElasticSearch', () => {
       _index: 'university',
       _source: {
         title: 'Академия гражданской авиации',
-        title_suggest: [
-          { input: 'Академия гражданской авиации', weight: 10 },
-          { input: 'АГА', weight: 8 },
-          { input: 'гражданская авиация', weight: 3 },
-        ],
       },
       _type: 'university',
       _version: 1,
@@ -208,67 +170,70 @@ describe('ElasticSearch', () => {
   });
 
   it('suggest at the beginning', async () => {
-    const phrase = 'акад';
+    const phrase = 'ал';
     const res = await elasticClient.search({
       index: elasticIndex,
       type: elasticType,
       body: {
-        suggest: {
-          'beginning-suggest': {
-            prefix: phrase,
-            completion: {
-              field: 'title_suggest',
+        query: {
+          match: {
+            title: {
+              query: phrase,
             },
           },
         },
       },
     });
 
-    expect(res.suggest['beginning-suggest']).toEqual([
+    expect(res.hits.hits).toEqual([
       {
-        length: 4,
-        offset: 0,
-        options: [
-          {
-            _id: '1',
-            _index: 'university',
-            _score: 10,
-            _source: {
-              title: 'Академия гражданской авиации',
-              title_suggest: [
-                { input: 'Академия гражданской авиации', weight: 10 },
-                { input: 'АГА', weight: 8 },
-                { input: 'гражданская авиация', weight: 3 },
-              ],
-            },
-            _type: 'university',
-            text: 'Академия гражданской авиации',
-          },
-        ],
-        text: 'акад',
+        _id: '4',
+        _index: 'university',
+        _score: 1.3107914,
+        _source: { title: 'Казахский Национальный университет им. аль-Фараби (КазНУ)' },
+        _type: 'university',
+      },
+      {
+        _id: '2',
+        _index: 'university',
+        _score: 1.1555668,
+        _source: { title: 'Алматинский университет энергетики и связи' },
+        _type: 'university',
       },
     ]);
   });
 
-  it('suggest at the midlle', async () => {
-    const phrase = 'институт';
+  it('suggest at the middle', async () => {
+    const phrase = 'связ';
     const res = await elasticClient.search({
       index: elasticIndex,
       type: elasticType,
       body: {
-        suggest: {
-          'midlle-suggest': {
-            text: phrase,
-            completion: {
-              field: 'title_suggest',
+        query: {
+          match: {
+            title: {
+              query: phrase,
             },
           },
         },
       },
     });
 
-    expect(res.suggest['midlle-suggest']).toEqual([
-      { length: 8, offset: 0, options: [], text: 'институт' },
+    expect(res.hits.hits).toEqual([
+      {
+        _id: '2',
+        _index: 'university',
+        _score: 1.1555668,
+        _source: { title: 'Алматинский университет энергетики и связи' },
+        _type: 'university',
+      },
+      {
+        _id: '3',
+        _index: 'university',
+        _score: 1.1493918,
+        _source: { title: 'Военно-инженерный институт радиоэлектроники и связи МО РК' },
+        _type: 'university',
+      },
     ]);
   });
 });

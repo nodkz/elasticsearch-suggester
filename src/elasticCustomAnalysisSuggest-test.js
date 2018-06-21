@@ -1,7 +1,10 @@
 /* @flow */
 
 import elasticsearch from 'elasticsearch';
-import { runDockerContainer, stopDockerContainer } from '../../docker/elasticSuggestDocker';
+// import {
+//   runDockerContainer,
+//   stopAndRemoveDockerContainer,
+// } from '../../docker/elasticSuggestDocker';
 
 let elasticClient;
 const elasticIndex = 'university';
@@ -78,16 +81,14 @@ const testData = [
 ];
 
 beforeAll(async () => {
-  runDockerContainer();
+  // runDockerContainer();
   elasticClient = new elasticsearch.Client({
     host: 'http://127.0.0.1:9200',
     apiVersion: '5.0',
     maxRetries: 10,
-    requestTimeout: 1000 * 60 * 60,
-    keepAlive: false,
-    // log: 'debug',
+    requestTimeout: 60000,
+    // log: 'trace',
   });
-
   const isIndexExist = await elasticClient.indices.exists({ index: elasticIndex });
   if (!isIndexExist) {
     await elasticClient.indices.create({
@@ -95,6 +96,34 @@ beforeAll(async () => {
       body: {
         settings: {
           number_of_shards: 1,
+          analysis: {
+            filter: {
+              nGram_filter: {
+                type: 'nGram',
+                min_gram: 1,
+                max_gram: 20,
+                token_chars: ['letter', 'digit', 'punctuation', 'symbol'],
+              },
+            },
+            analyzer: {
+              my_analyzer: {
+                type: 'custom',
+                tokenizer: 'whitespace',
+                filter: ['lowercase', 'asciifolding', 'elision', 'nGram_filter'],
+              },
+              whitespace_analyzer: {
+                type: 'custom',
+                tokenizer: 'whitespace',
+                filter: ['lowercase', 'asciifolding'],
+              },
+              // analyzer: {
+              //   my_analyzer: {
+              //     type: 'custom',
+              //     tokenizer: 'whitespace',
+              //     filter: ['lowercase', 'asciifolding', 'elision'],
+              //   },
+            },
+          },
         },
         mappings: {
           [elasticType]: {
@@ -104,7 +133,8 @@ beforeAll(async () => {
               },
               title_suggest: {
                 type: 'completion',
-                analyzer: 'simple',
+                analyzer: 'my_analyzer',
+                search_analyzer: 'whitespace_analyzer',
                 preserve_separators: true,
                 preserve_position_increments: true,
                 max_input_length: 50,
@@ -138,7 +168,7 @@ beforeAll(async () => {
   });
 });
 
-afterAll(() => stopDockerContainer());
+// afterAll(() => stopAndRemoveDockerContainer());
 
 describe('ElasticSearch', () => {
   it('is running', async () => {
@@ -160,7 +190,7 @@ describe('ElasticSearch', () => {
             properties: {
               title: { type: 'text' },
               title_suggest: {
-                analyzer: 'simple',
+                analyzer: 'my_analyzer',
                 max_input_length: 50,
                 preserve_position_increments: true,
                 preserve_separators: true,
@@ -207,8 +237,8 @@ describe('ElasticSearch', () => {
     });
   });
 
-  it('suggest at the beginning', async () => {
-    const phrase = 'акад';
+  it.only('fuzzy suggest at the beginning', async () => {
+    const phrase = 'Алматн';
     const res = await elasticClient.search({
       index: elasticIndex,
       type: elasticType,
@@ -218,6 +248,9 @@ describe('ElasticSearch', () => {
             prefix: phrase,
             completion: {
               field: 'title_suggest',
+              fuzzy: {
+                fuzziness: 6,
+              },
             },
           },
         },
@@ -226,26 +259,25 @@ describe('ElasticSearch', () => {
 
     expect(res.suggest['beginning-suggest']).toEqual([
       {
-        length: 4,
+        length: 10,
         offset: 0,
         options: [
           {
-            _id: '1',
+            _id: '2',
             _index: 'university',
-            _score: 10,
+            _score: 110,
             _source: {
-              title: 'Академия гражданской авиации',
+              title: 'Алматинский университет энергетики и связи',
               title_suggest: [
-                { input: 'Академия гражданской авиации', weight: 10 },
-                { input: 'АГА', weight: 8 },
-                { input: 'гражданская авиация', weight: 3 },
+                { input: 'Алматинский университет энергетики и связи', weight: 10 },
+                { input: 'АУЭС', weight: 8 },
               ],
             },
             _type: 'university',
-            text: 'Академия гражданской авиации',
+            text: 'Алматинский университет энергетики и связи',
           },
         ],
-        text: 'акад',
+        text: 'Алматнский',
       },
     ]);
   });
