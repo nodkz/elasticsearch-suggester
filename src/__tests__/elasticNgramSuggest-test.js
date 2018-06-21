@@ -1,16 +1,14 @@
 /* @flow */
 
 import elasticsearch from 'elasticsearch';
-// import {
-//   runDockerContainer,
-//   stopDockerContainer,
-// } from '../../docker/elasticSuggestDocker';
-
-jasmine.DEFAULT_TIMEOUT_INTERVAL = 60000;
+import { runDockerContainer, stopDockerContainer } from '../../docker/elasticSuggestDocker';
+import seedData from '../seedData';
 
 let elasticClient;
+let elasticContainerName;
 const elasticIndex = 'university';
 const elasticType = 'university';
+
 const testData = [
   {
     id: 1,
@@ -31,13 +29,15 @@ const testData = [
 ];
 
 beforeAll(async () => {
-  // runDockerContainer();
-
+  const containerInfo = runDockerContainer();
+  const { containerName, port } = containerInfo;
+  elasticContainerName = containerName;
   elasticClient = new elasticsearch.Client({
-    host: 'http://127.0.0.1:9200',
+    host: `http://127.0.0.1:${port}`,
     apiVersion: '5.0',
     maxRetries: 10,
-    requestTimeout: 60000,
+    requestTimeout: 1000 * 30,
+    pingTimeout: 1000 * 30,
     // log: 'trace',
   });
 
@@ -86,29 +86,13 @@ beforeAll(async () => {
     });
   }
 
-  testData.forEach(async doc => {
-    const { id, title, title_suggest } = doc || {}; // eslint-disable-line camelcase
-    const isDocExist = await elasticClient.exists({
-      index: elasticIndex,
-      type: elasticType,
-      id,
-    });
-
-    if (!isDocExist) {
-      await elasticClient.create({
-        index: elasticIndex,
-        type: elasticType,
-        id,
-        body: {
-          title,
-          title_suggest,
-        },
-      });
-    }
-  });
+  await seedData(elasticClient, elasticIndex, elasticType, testData);
 });
 
-// afterAll(() => stopDockerContainer());
+afterAll(async () => {
+  await elasticClient.close();
+  stopDockerContainer(elasticContainerName);
+});
 
 describe('ElasticSearch', () => {
   it('is running', async () => {

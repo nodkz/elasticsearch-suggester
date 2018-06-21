@@ -4,7 +4,21 @@ const cp = require('child_process');
 const path = require('path');
 
 const dockerImageName = 'es:5';
-const containerName = `es-container`;
+const containerNamePrefix = `es-container`;
+
+function generateContainerName() {
+  return `${containerNamePrefix}-${Date.now()}`;
+}
+
+function generateAvailablePort() {
+  const port = Math.floor(Math.random() * (9900 - 9200)) + 9200;
+  // let notAvailable = cp.execSync(`lsof -i:${port}`).toString();
+  // while (notAvailable) {
+  //   port += 1;
+  //   notAvailable = cp.execSync(`lsof -i:${port}`).toString();
+  // }
+  return port;
+}
 
 function isDockerImageExists(imageName) {
   const imageId = cp.execSync(`docker images -q ${imageName}`, { cwd: '.' }).toString();
@@ -24,34 +38,28 @@ function buildDockerContainer() {
   );
 }
 
-function isContainerRunning() {
-  const isRunning = cp
-    .execSync(`docker ps -f "name=${containerName}" --format "{{.Names}}"`)
-    .toString();
-  return !!isRunning;
-}
+// function isContainerRunning(containerName) {
+//   const isRunning = cp
+//     .execSync(`docker ps -f "name=${containerName}" --format "{{.Names}}"`)
+//     .toString();
+//   return !!isRunning;
+// }
 
 export function runDockerContainer() {
-  console.log('inside run');
-  if (!isContainerRunning()) {
-    if (!isDockerImageExists(dockerImageName)) buildDockerContainer();
-    cp.execSync(`sh es.sh ${containerName} ${dockerImageName} & wait`, {
-      cwd: path.resolve(__dirname, `./es5`),
-      stdio: [0, 1, 2],
-    });
-    return true;
-  }
-  return true;
+  const containerName = generateContainerName();
+  const port = generateAvailablePort();
+  if (!isDockerImageExists(dockerImageName)) buildDockerContainer();
+  cp.execSync(`sh es.sh ${port} ${containerName} ${dockerImageName} & wait`, {
+    cwd: path.resolve(__dirname, `./es5`),
+    stdio: [0, 1, 2],
+  });
+  return { containerName, port };
 }
 
-export function stopDockerContainer() {
-  console.log('inside exit');
+export function stopDockerContainer(containerName) {
   const stoppedContainer = cp.execSync(`docker stop ${containerName}`).toString();
   if (!stoppedContainer) throw new Error(`Can't stop '${stoppedContainer}' container`);
-  return stoppedContainer;
-  // cp.execSync(`docker rm ${containerName}`);
-  // if (isContainerRunning()) reject(new Error(`Can't stop and remove container`));
-  // resolve(true);
+  return true;
   // cp.execSync(`docker rmi -f ${dockerImageName}`, { stdio: [0, 1, 2] });
   // cp.execSync(`docker rmi -f elasticsearch:5-alpine`, { stdio: [0, 1, 2] });
 }

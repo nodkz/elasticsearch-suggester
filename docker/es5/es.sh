@@ -1,7 +1,9 @@
 #!/bin/bash
 
-ES_CONTAINER_NAME=$1
-ES_DOCKER_IMAGE_NAME=$2
+ES_CONTAINER_EXTERNAL_PORT=$1
+ES_CONTAINER_NAME=$2
+ES_DOCKER_IMAGE_NAME=$3
+URL="http://127.0.0.1:$ES_CONTAINER_EXTERNAL_PORT"
 
 #  OS="`uname`"
 # if [ $OS = "Linux" ]; then
@@ -9,7 +11,7 @@ ES_DOCKER_IMAGE_NAME=$2
 # fi
 
 isElasticAvailable() {
-  curl -s http://localhost:9200 2>&1 > /dev/null
+  curl -s $URL 2>&1 > /dev/null
   if [ $? != 0 ]; then
     false
   else
@@ -17,7 +19,8 @@ isElasticAvailable() {
   fi
 }
 
-docker run --rm -d -p 9200:9200 --name $ES_CONTAINER_NAME $ES_DOCKER_IMAGE_NAME
+echo 'cp pid: ' $$
+docker run --rm -d -p $ES_CONTAINER_EXTERNAL_PORT:9200 --name $ES_CONTAINER_NAME $ES_DOCKER_IMAGE_NAME
 
 until isElasticAvailable
   do
