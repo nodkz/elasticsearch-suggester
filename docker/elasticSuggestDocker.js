@@ -35,7 +35,7 @@ export function runDockerContainer() {
   console.log('inside run');
   if (!isContainerRunning()) {
     if (!isDockerImageExists(dockerImageName)) buildDockerContainer();
-    cp.execSync(`sh es.sh ${containerName} ${dockerImageName}`, {
+    cp.execSync(`sh es.sh ${containerName} ${dockerImageName} & wait`, {
       cwd: path.resolve(__dirname, `./es5`),
       stdio: [0, 1, 2],
     });

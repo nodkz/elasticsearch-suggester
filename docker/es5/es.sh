@@ -3,12 +3,26 @@
 ES_CONTAINER_NAME=$1
 ES_DOCKER_IMAGE_NAME=$2
 
+#  OS="`uname`"
+# if [ $OS = "Linux" ]; then
+#    sysctl -q -w vm.max_map_count=262144
+# fi
+
+isElasticAvailable() {
+  curl -s http://localhost:9200 2>&1 > /dev/null
+  if [ $? != 0 ]; then
+    false
+  else
+    true
+  fi
+}
+
 docker run --rm -d -p 9200:9200 --name $ES_CONTAINER_NAME $ES_DOCKER_IMAGE_NAME
-res=$(curl -sk http://localhost:9200/_cat/health)
-# Wait for the elastic port to be available
-until `$(curl localhost:9200/_cluster/health)`
-do
-    echo "$status_code"
-    # echo "waiting for elastic container..."
-    sleep 3.0
-done
+
+until isElasticAvailable
+  do
+      echo 'waiting for ElasticSearch container...'
+      sleep 3.0
+  done
+    echo 'ElasticSearch up!'
+    exit 0
